@@ -1,0 +1,1 @@
+# Blockchain_NGO_Partnership_Tool
