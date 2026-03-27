@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NGO Consortium Registry</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: rgba(255,255,255,0.08);
+      --panel-strong: rgba(255,255,255,0.12);
+      --text: #eef2ff;
+      --muted: #a5b4fc;
+      --line: rgba(255,255,255,0.12);
+      --accent: #7c3aed;
+      --accent-2: #06b6d4;
+      --green: #10b981;
+      --red: #ef4444;
+      --shadow: 0 20px 45px rgba(0,0,0,0.28);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(124,58,237,0.35), transparent 28%),
+        radial-gradient(circle at top right, rgba(6,182,212,0.18), transparent 25%),
+        linear-gradient(180deg, #0b1020 0%, #111831 100%);
+      min-height: 100vh;
+    }
+
+    .container { max-width: 1180px; margin: 0 auto; padding: 28px 18px 40px; }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(6,182,212,0.14));
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      backdrop-filter: blur(14px);
+    }
+
+    .hero h1 { margin: 0 0 10px; font-size: 34px; }
+    .hero p { margin: 0; color: #dbe4ff; line-height: 1.55; max-width: 900px; }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+    }
+
+    .panel h2, .panel h3 { margin: 0 0 12px; }
+    .small { font-size: 14px; color: #c7d2fe; }
+    .muted { color: var(--muted); }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #d7ddff;
+      margin-bottom: 7px;
+      font-weight: 600;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.14);
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      outline: none;
+      transition: 0.2s ease;
+    }
+
+    input::placeholder, textarea::placeholder { color: #93a0d6; }
+    input:focus, textarea:focus, select:focus {
+      border-color: rgba(124,58,237,0.8);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+    }
+
+    textarea { resize: vertical; min-height: 100px; }
+
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    button {
+      border: none;
+      cursor: pointer;
+      border-radius: 14px;
+      padding: 12px 16px;
+      color: white;
+      font-weight: 700;
+      transition: transform 0.15s ease, opacity 0.2s ease, filter 0.2s ease;
+    }
+
+    button:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .primary { background: linear-gradient(135deg, var(--accent), #8b5cf6); }
+    .secondary { background: linear-gradient(135deg, #0ea5e9, var(--accent-2)); }
+    .ghost { background: rgba(255,255,255,0.08); border: 1px solid var(--line); }
+
+    .wallet-status {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 14px;
+      margin-top: 10px;
+      word-break: break-all;
+    }
+
+    .step-tabs {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 20px 0 18px;
+    }
+
+    .tab {
+      padding: 12px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--line);
+      color: white;
+      font-weight: 700;
+    }
+
+    .tab.active {
+      background: linear-gradient(135deg, rgba(124,58,237,0.85), rgba(6,182,212,0.5));
+    }
+
+    .step { display: none; }
+    .step.active { display: block; }
+
+    .step-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--line);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+    }
+
+    .span-5 { grid-column: span 5; }
+    .span-7 { grid-column: span 7; }
+    .span-6 { grid-column: span 6; }
+    .span-12 { grid-column: span 12; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .stat .num { font-size: 28px; font-weight: 800; margin-top: 6px; }
+
+    .card-list { display: grid; gap: 12px; }
+
+    .item {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 15px;
+    }
+
+    .item h4 { margin: 0 0 8px; font-size: 18px; }
+    .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .pill {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--line);
+    }
+    .pill.ok { color: #bbf7d0; border-color: rgba(16,185,129,0.35); }
+    .pill.full { color: #fecaca; border-color: rgba(239,68,68,0.35); }
+
+    .address {
+      display: inline-block;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: rgba(255,255,255,0.06);
+      padding: 4px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+      margin-top: 6px;
+      word-break: break-all;
+    }
+
+    .message {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      display: none;
+    }
+    .message.show { display: block; }
+    .message.success { background: rgba(16,185,129,0.15); color: #bbf7d0; }
+    .message.error { background: rgba(239,68,68,0.15); color: #fecaca; }
+    .message.info { background: rgba(59,130,246,0.15); color: #bfdbfe; }
+
+    .empty {
+      text-align: center;
+      color: #b9c3f8;
+      padding: 18px;
+      border: 1px dashed rgba(255,255,255,0.18);
+      border-radius: 16px;
+    }
+
+    @media (max-width: 980px) {
+      .topbar, .grid, .stats, .row, .row-3 { grid-template-columns: 1fr; }
+      .span-5, .span-6, .span-7, .span-12 { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <h1>NGO Consortium Registry</h1>
+      <p>
+        A unique blockchain dashboard for international project partnerships. Find available partners and join projects!
+      </p>
+
+      <div class="topbar">
+        <div class="panel">
+          <h2>Step 1 · Connect wallet</h2>
+          <div class="btn-row">
+            <button class="primary" id="connectBtn">Connect Wallet</button>
+            <button class="ghost" id="refreshBtnTop">Refresh Data</button>
+          </div>
+          <div id="walletInfo" class="wallet-status small">Not connected</div>
+        </div>
+
+        <div class="panel">
+          <h2>Step 2 · Load contract</h2>
+          <label for="contractAddress">Contract address</label>
+          <input id="contractAddress" placeholder="Deployed contract address here (0x...)" />
+          <div class="btn-row">
+            <button class="secondary" id="loadContractBtn">Load Contract</button>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="small">Registered NGOs</div><div class="num" id="statNgos">0</div></div>
+      <div class="stat"><div class="small">Consortiums</div><div class="num" id="statConsortiums">0</div></div>
+      <div class="stat"><div class="small">Open NGOs</div><div class="num" id="statOpen">0</div></div>
+      <!-- <div class="stat"><div class="small">Current Network</div><div class="num" id="statNetwork" style="font-size:18px;line-height:1.2;">-</div></div> -->
+    </div>
+
+    <div class="step-tabs">
+      <button class="tab active" data-step="viewStep">View available partners</button>
+      <button class="tab" data-step="registerStep">Register NGO</button>
+      <button class="tab" data-step="consortiumStep">Create consortium</button>
+      <button class="tab" data-step="partnerStep">Add partner</button>
+    </div>
+
+    <div id="globalMessage" class="message"></div>
+
+    <section id="viewStep" class="step active">
+      <div class="grid">
+        <div class="span-5 panel">
+          <div class="step-header">
+            <div>
+              <h2>Available partners</h2>
+              <div class="small">Browse NGOs with free slots.</div>
+            </div>
+           
+          </div>
+          <div class="btn-row">
+            <button class="secondary" id="showOpenBtn">Show Open NGOs</button>
+            <button class="ghost" id="showAllBtn">Show All NGOs</button>
+          </div>
+          <div id="openNgoList" class="card-list" style="margin-top:14px;"></div>
+        </div>
+
+        <div class="span-7 panel">
+          <div class="step-header">
+            <div>
+              <h2>Consortiums overview</h2>
+              <div class="small">See existing project groups and partner composition.</div>
+            </div>
+            
+          </div>
+          <div id="consortiumList" class="card-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="registerStep" class="step">
+      <div class="grid">
+        <div class="span-6 panel">
+          <div class="step-header">
+            <div>
+              <h2>Register a new NGO</h2>
+              <div class="small">Only the owner wallet can do this, for project purposes to avoid funding multiple contracts</div>
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="ngoAddr">NGO wallet address</label>
+              <input id="ngoAddr" placeholder="Auto-generated address" readonly />
+            </div>
+            <div>
+              <label for="ngoName">NGO name</label>
+              <input id="ngoName" placeholder="GreenFuture" />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="ngoCountry">Country</label>
+              <input id="ngoCountry" placeholder="IT" />
+            </div>
+            <div>
+              <label for="ngoLimit">Slot limit</label>
+              <select id="ngoLimit">
+                <option value="5">5</option>
+                <option value="10">10</option>
+              </select>
+            </div>
+          </div>
+              <div class="btn-row">
+        <button class="ghost" id="generateAddrBtn" type="button">Generate NGO Address</button>
+        <button class="primary" id="registerBtn">Register NGO</button>
+      </div>
+        </div>
+
+        <div class="span-6 panel">
+          <h3>Registered NGOs</h3>
+          <div id="ngoList" class="card-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="consortiumStep" class="step">
+      <div class="grid">
+        <div class="span-6 panel">
+          <div class="step-header">
+            <div>
+              <h2>Create a consortium</h2>
+              <div class="small">The connected owner account creates the consortium and becomes the initial owner of the project.</div>
+            </div>
+          </div>
+          <label for="projectName">Project name</label>
+          <input id="projectName" placeholder="YouthClimate2026" />
+          <div class="btn-row">
+            <button class="primary" id="createConsortiumBtn">Create Consortium</button>
+          </div>
+        </div>
+
+        <div class="span-6 panel">
+          <h3>Quick explanation</h3>
+          <div class="item">
+            <strong>What happens after creation?</strong>
+            <div class="small" style="margin-top:8px;">
+              The owner wallet creates a consortium record. You can then go to the next step and add partner NGOs one by one.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="partnerStep" class="step">
+      <div class="grid">
+        <div class="span-6 panel">
+          <div class="step-header">
+            <div>
+              <h2>Add a partner to a consortium</h2>
+              <div class="small">Use a consortium ID and one NGO wallet address.</div>
+            </div>
+
+          </div>
+                <div class="row">
+        <div>
+          <label for="consortiumIdSelect">Consortium</label>
+          <select id="consortiumIdSelect"></select>
+        </div>
+        <div>
+          <label for="partnerNameSelect">Partner NGO</label>
+          <select id="partnerNameSelect"></select>
+        </div>
+      </div>
+          <div class="btn-row">
+            <button class="primary" id="addPartnerBtn">Add Partner</button>
+          </div>
+        </div>
+
+        <div class="span-6 panel">
+          <h3>Tip</h3>
+          <div class="item">
+            <div class="small">
+              Pick the partner address from the NGO list in the <strong>Register NGO</strong> tab or from <strong>Available partners</strong>.
+              If a partner is already full, the transaction will fail.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+ <script>
+  let provider;
+  let signer;
+  let contract;
+  let currentAccount;
+
+  const abi = [
+    "function owner() view returns (address)",
+    "function registerNGO(address ngoAddr, string name, string country, uint8 limitSlots)",
+    "function createConsortium(string projectName)",
+    "function addPartner(uint256 consortiumId, address partner)",
+    "function getNGOCount() view returns (uint256)",
+    "function getConsortiumCount() view returns (uint256)",
+    "function getNGOAt(uint256 index) view returns (address ngoAddr, string name, string country, uint8 limitSlots, uint8 usedSlots, uint8 status)",
+    "function getConsortiumAt(uint256 index) view returns (string projectName, address ownerNGO, address[] partners)",
+    "function getOpenNGOs() view returns (address[])",
+    "function getStatus(address ngoAddr) view returns (uint8)"
+  ];
+
+  function shortAddr(addr) {
+    if (!addr) return "-";
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  }
+
+  function statusText(status) {
+    return Number(status) === 0 ? "OPEN" : "FULL";
+  }
+
+  function showMessage(text, type = "info") {
+    const box = document.getElementById("globalMessage");
+    box.className = `message show ${type}`;
+    box.textContent = text;
+  }
+
+  function clearMessage() {
+    const box = document.getElementById("globalMessage");
+    box.className = "message";
+    box.textContent = "";
+  }
+
+  function generateNGOAddress() {
+    const wallet = ethers.Wallet.createRandom();
+    document.getElementById("ngoAddr").value = wallet.address;
+  }
+
+  function ensureNGOAddress() {
+    const input = document.getElementById("ngoAddr");
+    if (!input.value.trim()) {
+      generateNGOAddress();
+    }
+  }
+
+  async function connectWallet() {
+    try {
+      if (!window.ethereum) {
+        showMessage("No wallet found. Please install a browser wallet.", "error");
+        return;
+      }
+
+      provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      signer = await provider.getSigner();
+      currentAccount = await signer.getAddress();
+
+      const network = await provider.getNetwork();
+      document.getElementById("walletInfo").textContent = `Connected: ${currentAccount}`;
+      document.getElementById("statNetwork").textContent = `${network.name} (${network.chainId})`;
+      showMessage("Wallet connected successfully.", "success");
+    } catch (err) {
+      showMessage(`Connection failed: ${err.shortMessage || err.message}`, "error");
+    }
+  }
+
+  async function loadContract() {
+    try {
+      clearMessage();
+
+      if (!provider || !signer) {
+        showMessage("Connect your wallet first.", "error");
+        return;
+      }
+
+      const address = document.getElementById("contractAddress").value.trim();
+      if (!address) {
+        showMessage("Please paste the contract address first.", "error");
+        return;
+      }
+
+      const network = await provider.getNetwork();
+      console.log("UI network:", network.name, network.chainId.toString());
+      console.log("UI contract address:", address);
+
+      const code = await provider.getCode(address);
+      console.log("Code at address:", code);
+
+      if (code === "0x") {
+        showMessage("No contract code found at this address on this network.", "error");
+        return;
+      }
+
+      contract = new ethers.Contract(address, abi, signer);
+
+      const owner = await contract.owner();
+     
+
+      showMessage("Contract loaded successfully.", "success");
+      ensureNGOAddress();
+      await refreshAll();
+    } catch (err) {
+      console.error("loadContract error:", err);
+      showMessage(`Could not load contract: ${err.shortMessage || err.message}`, "error");
+    }
+  }
+
+  async function registerNGO() {
+    try {
+      clearMessage();
+      if (!contract) {
+        showMessage("Load the contract first.", "error");
+        return;
+      }
+
+      ensureNGOAddress();
+
+      const ngoAddr = document.getElementById("ngoAddr").value.trim();
+      const ngoName = document.getElementById("ngoName").value.trim();
+      const ngoCountry = document.getElementById("ngoCountry").value.trim();
+      const ngoLimit = Number(document.getElementById("ngoLimit").value);
+
+      if (!ngoName || !ngoCountry) {
+        showMessage("Please fill NGO name and country.", "error");
+        return;
+      }
+
+      const tx = await contract.registerNGO(ngoAddr, ngoName, ngoCountry, ngoLimit);
+      showMessage("Transaction sent. Waiting for confirmation...", "info");
+      await tx.wait();
+
+      showMessage("NGO registered successfully.", "success");
+      document.getElementById("ngoName").value = "";
+      document.getElementById("ngoCountry").value = "";
+      document.getElementById("ngoAddr").value = "";
+      ensureNGOAddress();
+
+      await refreshAll();
+    } catch (err) {
+      console.error(err);
+      showMessage(`Register NGO failed: ${err.shortMessage || err.message}`, "error");
+    }
+  }
+
+  async function createConsortium() {
+    try {
+      clearMessage();
+      if (!contract) {
+        showMessage("Load the contract first.", "error");
+        return;
+      }
+
+      const projectName = document.getElementById("projectName").value.trim();
+      if (!projectName) {
+        showMessage("Please enter a project name.", "error");
+        return;
+      }
+
+      const tx = await contract.createConsortium(projectName);
+      showMessage("Transaction sent. Waiting for confirmation...", "info");
+      await tx.wait();
+
+      showMessage("Consortium created successfully.", "success");
+      document.getElementById("projectName").value = "";
+      await refreshAll();
+    } catch (err) {
+      console.error(err);
+      showMessage(`Create consortium failed: ${err.shortMessage || err.message}`, "error");
+    }
+  }
+
+  async function addPartner() {
+    try {
+      clearMessage();
+      if (!contract) {
+        showMessage("Load the contract first.", "error");
+        return;
+      }
+
+      const consortiumId = Number(document.getElementById("consortiumIdSelect").value);
+      const partner = document.getElementById("partnerNameSelect").value;
+
+      if (!partner) {
+        showMessage("Please choose a partner NGO.", "error");
+        return;
+      }
+
+      const tx = await contract.addPartner(consortiumId, partner);
+      showMessage("Transaction sent. Waiting for confirmation...", "info");
+      await tx.wait();
+
+      showMessage("Partner added successfully.", "success");
+      await refreshAll();
+    } catch (err) {
+      console.error(err);
+      showMessage(`Add partner failed: ${err.shortMessage || err.message}`, "error");
+    }
+  }
+
+  async function refreshAll() {
+    if (!contract) return;
+
+    const ngoList = document.getElementById("ngoList");
+    const consortiumList = document.getElementById("consortiumList");
+    const openNgoList = document.getElementById("openNgoList");
+    const consortiumSelect = document.getElementById("consortiumIdSelect");
+    const partnerSelect = document.getElementById("partnerNameSelect");
+
+    ngoList.innerHTML = "";
+    consortiumList.innerHTML = "";
+    openNgoList.innerHTML = "";
+    consortiumSelect.innerHTML = "";
+    partnerSelect.innerHTML = "";
+
+    const ngoCount = Number(await contract.getNGOCount());
+    const consortiumCount = Number(await contract.getConsortiumCount());
+    const openNgos = await contract.getOpenNGOs();
+
+    document.getElementById("statNgos").textContent = ngoCount;
+    document.getElementById("statConsortiums").textContent = consortiumCount;
+    document.getElementById("statOpen").textContent = openNgos.length;
+
+    const ngoMap = {};
+
+    if (ngoCount === 0) {
+      ngoList.innerHTML = '<div class="empty">No NGOs registered yet.</div>';
+      partnerSelect.innerHTML = '<option value="">No NGOs registered</option>';
+    } else {
+      for (let i = 0; i < ngoCount; i++) {
+        const ngo = await contract.getNGOAt(i);
+
+        const ngoAddr = ngo[0];
+        const name = ngo[1];
+        const country = ngo[2];
+        const limitSlots = Number(ngo[3]);
+        const usedSlots = Number(ngo[4]);
+        const status = Number(ngo[5]);
+
+        ngoMap[ngoAddr.toLowerCase()] = {
+          name,
+          country,
+          limitSlots,
+          usedSlots,
+          status,
+          address: ngoAddr
+        };
+
+        const item = document.createElement("div");
+        item.className = "item";
+        item.innerHTML = `
+          <h4>${name}</h4>
+          <div class="small">Country: ${country}</div>
+          <div class="address">${ngoAddr}</div>
+          <div class="meta">
+            <span class="pill">Used: ${usedSlots} / ${limitSlots}</span>
+            <span class="pill ${status === 0 ? "ok" : "full"}">${statusText(status)}</span>
+          </div>
+        `;
+        ngoList.appendChild(item);
+
+        const opt = document.createElement("option");
+        opt.value = ngoAddr;
+        opt.textContent = `${name} (${country})`;
+        partnerSelect.appendChild(opt);
+      }
+    }
+
+    if (consortiumCount === 0) {
+      consortiumList.innerHTML = '<div class="empty">No consortiums yet.</div>';
+      consortiumSelect.innerHTML = '<option value="">No consortiums yet</option>';
+    } else {
+      for (let i = 0; i < consortiumCount; i++) {
+        const c = await contract.getConsortiumAt(i);
+
+        const projectName = c[0];
+        const ownerNGO = c[1];
+        const partners = c[2];
+
+        const partnerBadges = partners.map(addr => {
+          const ngo = ngoMap[addr.toLowerCase()];
+          const label = ngo ? `${ngo.name} (${shortAddr(addr)})` : shortAddr(addr);
+          return `<span class="pill">${label}</span>`;
+        }).join("");
+
+        const item = document.createElement("div");
+        item.className = "item";
+        item.innerHTML = `
+          <h4>#${i} · ${projectName}</h4>
+          <div class="small" style="margin-top:10px;">Partners (${partners.length})</div>
+          <div class="meta">${partnerBadges || '<span class="pill">No partners yet</span>'}</div>
+        `;
+        consortiumList.appendChild(item);
+
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = `#${i} · ${projectName}`;
+        consortiumSelect.appendChild(opt);
+      }
+    }
+
+    if (openNgos.length === 0) {
+      openNgoList.innerHTML = '<div class="empty">No NGOs with free slots right now.</div>';
+    } else {
+      for (const addr of openNgos) {
+        const ngo = ngoMap[addr.toLowerCase()];
+        const name = ngo ? ngo.name : shortAddr(addr);
+        const country = ngo ? ngo.country : "-";
+        const usedSlots = ngo ? ngo.usedSlots : "?";
+        const limitSlots = ngo ? ngo.limitSlots : "?";
+
+        const item = document.createElement("div");
+        item.className = "item";
+        item.innerHTML = `
+          <h4>${name}</h4>
+          <div class="small">Country: ${country}</div>
+    
+          <div class="meta">
+            <span class="pill">Used: ${usedSlots} / ${limitSlots}</span>
+            <span class="pill ok">Available</span>
+          </div>
+        `;
+        openNgoList.appendChild(item);
+      }
+    }
+  }
+
+  function activateStep(stepId) {
+    document.querySelectorAll(".step").forEach(s => s.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.getElementById(stepId).classList.add("active");
+    document.querySelector(`[data-step="${stepId}"]`).classList.add("active");
+
+    if (stepId === "registerStep") {
+      ensureNGOAddress();
+    }
+  }
+
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => activateStep(tab.dataset.step));
+  });
+
+  document.getElementById("connectBtn").addEventListener("click", connectWallet);
+  document.getElementById("loadContractBtn").addEventListener("click", loadContract);
+  document.getElementById("registerBtn").addEventListener("click", registerNGO);
+  document.getElementById("createConsortiumBtn").addEventListener("click", createConsortium);
+  document.getElementById("addPartnerBtn").addEventListener("click", addPartner);
+  document.getElementById("refreshBtnTop").addEventListener("click", refreshAll);
+  document.getElementById("showOpenBtn").addEventListener("click", async () => {
+    activateStep("viewStep");
+    await refreshAll();
+  });
+  document.getElementById("showAllBtn").addEventListener("click", async () => {
+    activateStep("registerStep");
+    await refreshAll();
+  });
+  document.getElementById("generateAddrBtn").addEventListener("click", generateNGOAddress);
+</script>
+</body>
+</html>
