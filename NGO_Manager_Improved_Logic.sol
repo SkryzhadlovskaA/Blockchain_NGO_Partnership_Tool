@@ -1,9 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+/*
+    NGO Consortium Registry
+
+    Main idea:
+    - The contract owner registers NGOs.
+    - The owner creates consortiums/projects.
+    - The owner adds NGO partners to consortiums.
+    - Each time an NGO is added to a consortium, one slot is used
+    - If an NGO reaches its limit, it becomes FULL.
+*/
+
 contract NGOConsortiumSingleOwner {
+    // NGO availability
     enum Status { OPEN, FULL }
 
+    //  NGO info
     struct NGO {
         string name;
         string country;
@@ -12,18 +25,22 @@ contract NGOConsortiumSingleOwner {
         bool exists;
     }
 
+    //Project info
     struct Consortium {
         string projectName;
         address ownerNGO;
         address[] partners;
     }
 
+    //address that deployed contract and can manage the partnerships
     address public owner;
+
     address[] public ngoAddresses;
     Consortium[] public consortiums;
 
     mapping(address => NGO) public ngos;
 
+    //most important actions
     event NGORegistered(address indexed ngo, string name, string country, uint8 limitSlots);
     event ConsortiumCreated(uint256 indexed consortiumId, string projectName, address indexed ownerNGO);
     event PartnerAdded(uint256 indexed consortiumId, address indexed partner);
@@ -38,6 +55,7 @@ contract NGOConsortiumSingleOwner {
         owner = msg.sender;
     }
 
+    //registers a new NGO
     function registerNGO(
         address ngoAddr,
         string calldata name,
@@ -59,6 +77,8 @@ contract NGOConsortiumSingleOwner {
         emit NGORegistered(ngoAddr, name, country, limitSlots);
     }
 
+
+    //Registers a new project, partners are added later with addPartner()
     function createConsortium(string calldata projectName) external onlyOwner {
         require(bytes(projectName).length > 0, "Project name required");
 
@@ -71,6 +91,7 @@ contract NGOConsortiumSingleOwner {
         emit ConsortiumCreated(consortiumId, projectName, owner);
     }
 
+    //Adds a new partner to a project, but checks if consortuim exists  first, if ngo registered, has free slots and not already part of this project
     function addPartner(uint256 consortiumId, address partner) external onlyOwner {
         require(consortiumId < consortiums.length, "Invalid consortium");
         require(ngos[partner].exists, "Partner NGO not registered");
@@ -84,6 +105,7 @@ contract NGOConsortiumSingleOwner {
         emit SlotsUpdated(partner, ngos[partner].usedSlots, getStatus(partner));
     }
 
+    //checks if NGO is already part of this project
     function isPartner(uint256 consortiumId, address ngoAddr) public view returns (bool) {
         require(consortiumId < consortiums.length, "Invalid consortium");
 
@@ -95,6 +117,7 @@ contract NGOConsortiumSingleOwner {
         return false;
     }
 
+    //Checks if NGO is OPEN (still has available partnership slots) or FULL
     function getStatus(address ngoAddr) public view returns (Status) {
         require(ngos[ngoAddr].exists, "NGO not registered");
         return ngos[ngoAddr].usedSlots < ngos[ngoAddr].limitSlots ? Status.OPEN : Status.FULL;
@@ -131,9 +154,11 @@ contract NGOConsortiumSingleOwner {
         return (c.projectName, c.ownerNGO, c.partners);
     }
 
+    //get an overview of all OPEN NGOs
     function getOpenNGOs() external view returns (address[] memory) {
         uint256 count = 0;
 
+        //count open NGOs
         for (uint256 i = 0; i < ngoAddresses.length; i++) {
             address ngoAddr = ngoAddresses[i];
             if (ngos[ngoAddr].usedSlots < ngos[ngoAddr].limitSlots) {
@@ -141,9 +166,11 @@ contract NGOConsortiumSingleOwner {
             }
         }
 
+        //create an array with the right amount of space
         address[] memory openNGOs = new address[](count);
         uint256 index = 0;
 
+        //store open NGO addresses
         for (uint256 i = 0; i < ngoAddresses.length; i++) {
             address ngoAddr = ngoAddresses[i];
             if (ngos[ngoAddr].usedSlots < ngos[ngoAddr].limitSlots) {
